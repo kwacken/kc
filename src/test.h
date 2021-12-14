@@ -27,6 +27,10 @@
 #define tassert_eqf(NAME, A, B, ...)			\
   tassertf(NAME, (A) == (B), __VA_ARGS__)
 
+// Asserts TRUE, marking a test which is not asserted.
+#define tcheckpoint(NAME)			\
+  tassertf(NAME, TRUE, "%s", NAME)
+
 
 // QCC_TESTING enables test suites at compile-time.
 #ifdef QCC_TESTING
@@ -74,7 +78,7 @@
 
 #define __test_assert_message_(NAME, PASS, MSG, ...)			\
   printf("    - %s", (NAME)); printf(" ... %s\n", ((PASS)) ? "OK" : "ERR"); \
-  if (!(PASS)) { printf("      "); printf((MSG), __VA_ARGS__); printf("\n"); }
+  if (!(PASS)) { printf("      "); printf((MSG), ## __VA_ARGS__); printf("\n"); }
 
 struct __test_entry {
   const char* name;

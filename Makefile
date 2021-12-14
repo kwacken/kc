@@ -1,7 +1,7 @@
 SRCS = src/region.c
 OBJS = $(SRCS:.c=.o)
 DEPS = $(OBJS:.o=.d)
-TEST_SRCS = test/main.c test/hmap.c
+TEST_SRCS = test/main.c test/hmap.c test/region.c
 TEST_OBJS = $(TEST_SRCS:.c=.o)
 TEST_DEPS = $(TEST_OBJS:.o=.d)
 

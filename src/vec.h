@@ -84,19 +84,19 @@
 
 // Iterate over the elements of the vec.
 #define vec_foreach(VAR, VEC)					\
-  ptr_array_foreach((VAR), vec_len((VEC)), vec_raw((VEC)))
+  array_foreach((VAR), vec_len((VEC)), vec_raw((VEC)))
 
 // Iterate over the elements of the vec in reverse.
 #define vec_foreach_rev(VAR, VEC)				\
-  ptr_array_foreach_rev((VAR), vec_len((VEC)), vec_raw((VEC)))
+  array_foreach_rev((VAR), vec_len((VEC)), vec_raw((VEC)))
 
 // Iterate over the elements of the vec, with their index in VAR_IDX.
 #define vec_idx_foreach(VAR, VAR_IDX, VEC)			\
-  ptr_array_idx_foreach((VAR), (VAR_IDX), vec_len((VEC)), vec_raw((VEC)))
+  array_idx_foreach((VAR), (VAR_IDX), vec_len((VEC)), vec_raw((VEC)))
 
 // Iterate over the elements of the array, in reverse, with their index.
 #define vec_idx_foreach_rev(VAR, VAR_IDX, VEC)				\
-  ptr_array_idx_foreach_rev((VAR), (VAR_IDX), vec_len((VEC)), vec_raw((VEC)))
+  array_idx_foreach_rev((VAR), (VAR_IDX), vec_len((VEC)), vec_raw((VEC)))
 
 
 // Create a new vec stored in region REG with capacity CAP.
@@ -117,6 +117,8 @@
 
 VEC_DECL(__vec_internal, char);
 
+////////////////////////////////////////////////////////////////////////////////
+
 static inline void __attribute__((unused))
 __vec_push_(struct __vec_internal*, char*);
 static inline void __attribute__((unused, always_inline))
@@ -126,13 +128,15 @@ __vec_reserve_(struct __vec_internal*, size_t);
 static inline void __attribute__((unused, always_inline))
 __vec_destroy(struct __vec_internal*);
 
-__attribute__((unused, always_inline))
-static inline void __vec_clear_(struct __vec_internal* vec) {
+////////////////////////////////////////////////////////////////////////////////
+
+static inline void __attribute__((unused, always_inline))
+__vec_clear_(struct __vec_internal* vec) {
   vec->len = 0;
 }
 
-__attribute__((unused, always_inline))
-static inline size_t __vec_len_(struct __vec_internal* vec) {
+static inline size_t __attribute__((unused, always_inline))
+__vec_len_(struct __vec_internal* vec) {
   return vec->len;
 }
 
@@ -149,7 +153,6 @@ __vec_push_(struct __vec_internal* vec, char* val) {
 
 static inline void __attribute__((unused, always_inline))
 __vec_vpop_(struct __vec_internal* vec) {
-  assertf(vec->len > 0, "popping empty vec");
   vec->len--;
 }
 
