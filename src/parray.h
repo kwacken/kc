@@ -1,0 +1,15 @@
+#pragma once
+
+////////////////////////////////////////////////////////////////////////////////
+//
+// parray.h - A type for pointer ararys.
+//
+////////////////////////////////////////////////////////////////////////////////
+
+#include <stddef.h>
+
+#define PARRAY_DECL(NAME, TYPE)			\
+  struct NAME { size_t len; TYPE* inner; }
+
+#define parray_t(TYPE)				\
+  struct { size_t len; TYPE* inner; }

@@ -17,7 +17,7 @@
 // Iterate from END to START, setting VAR.
 #define range_foreach_rev(VAR, END, START)	\
   for ((VAR) = (END);				\
-       (START) <= (VAR);			\
+       (START) < (VAR);				\
        (VAR)--)
 
 ////////////////////////////////////////////////////////////////////////////////

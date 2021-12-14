@@ -42,12 +42,13 @@
 // Get minimum of two comparible values.
 #define min(A, B) (((A) > (B)) ? (B) : (A))
 
-// Declare code path unreachable, fail in debug mode.
-#ifndef NDEBUG
-#define UNREACHABLE assertf(FALSE, "Unreachable")
-#else
-#define UNREACHABLE __builtin_unreachable()
-#endif
+// Swap the values of two references.
+#define swap(A, B)				\
+  do {						\
+    typeof(*(A)) _swap_tmp = *(A);		\
+    *(A) = *(B);				\
+    *(B) = _swap_tmp;				\
+  } while (0)
 
 // Declares a condition likely to occur.
 #define likely(COND) __builtin_expect((COND), 1)
@@ -66,6 +67,12 @@
 // Get length of a built-in array type.
 #define array_len(A) ((sizeof(A)) / (sizeof(A[0])))
 
+// Declare code path unreachable, fail in debug mode.
+#ifndef NDEBUG
+#define UNREACHABLE assertf(FALSE, "Unreachable"); __builtin_unreachable()
+#else
+#define UNREACHABLE __builtin_unreachable()
+#endif
 
 #ifndef NDEBUG
 

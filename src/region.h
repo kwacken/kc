@@ -40,9 +40,9 @@ region_t r_create();
 
 // Allocate an array of TYPE with COUNT elements.
 ////
-// int* int_array; r_malloc_array(r, int, 5);
-#define r_malloc_array(REG, TYPE, COUNT)	\
-  __r_malloc_((REG), (sizeof(TYPE) * (COUNT)))
+// parray_t(int) int_array; r_malloc_array(r, int, 5);
+#define r_malloc_parray(REG, TYPE, COUNT)				\
+  parray_new( __r_malloc_((REG), (sizeof(TYPE) * (COUNT))), (COUNT))
 
 // Allocate into the pointer PTR and initialize the memory.
 /////

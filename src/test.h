@@ -2,7 +2,7 @@
 
 ////////////////////////////////////////////////////////////////////////////////
 //
-// test.h - A simple tesing suite library.
+// test.h - A simple testing suite library.
 //
 // No harnesses, no safety, just check assertions with nicer formatting.
 //
@@ -46,7 +46,7 @@
   static const struct __test_entry __test_name(NAME ## _array)[] = { __VA_ARGS__ };	\
   static void __attribute__((constructor(200))) __test_name(NAME)() {	\
     __test_suite_execute_(#NAME,					\
-			  array_size(__test_name(NAME ## _array)),	\
+			  array_len(__test_name(NAME ## _array)),	\
 			  __test_name(NAME ## _array)); }			\
   static const int __attribute__((unused)) __test_name(NAME ## _reserved) = 0
 
@@ -72,9 +72,9 @@
 
 #define __test_name(NAME) __test_ ## NAME
 
-#define __test_assert_message_(NAME, PASS, MSG, __VA_ARGS_)		\
+#define __test_assert_message_(NAME, PASS, MSG, ...)			\
   printf("    - %s", (NAME)); printf(" ... %s\n", ((PASS)) ? "OK" : "ERR"); \
-  if (!(PASS)) { printf("      "); printf((MSG), __VA_ARGS_); printf("\n"); }
+  if (!(PASS)) { printf("      "); printf((MSG), __VA_ARGS__); printf("\n"); }
 
 struct __test_entry {
   const char* name;
