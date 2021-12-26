@@ -14,11 +14,11 @@
 // Assert COND is true inside a test, with error message ....
 /////
 // tassertf("Greater than 3", x > 3, "x was %d < 3", x)
-#define tassertf(NAME, COND, ...)			\
-  do {							\
-    bool_t __assert_cond = (COND);			\
+#define tassertf(NAME, COND, ...)				\
+  do {								\
+    bool __assert_cond = (COND);				\
     __test_assert_message_(NAME, __assert_cond, __VA_ARGS__);	\
-    if (!__assert_cond) { return FALSE; }		\
+    if (!__assert_cond) { return false; }			\
   } while (0)
 
 // Assert A equals B, with error message ....
@@ -29,7 +29,7 @@
 
 // Asserts TRUE, marking a test which is not asserted.
 #define tcheckpoint(NAME)			\
-  tassertf(NAME, TRUE, "%s", NAME)
+  tassertf(NAME, true, "%s", NAME)
 
 
 // QCC_TESTING enables test suites at compile-time.
@@ -40,7 +40,7 @@
 // Must return TRUE if all tests succeed.
 // TEST_DECL(foo_tests, r) { assertf(...); ... return TRUE; }
 #define TEST_DECL(NAME, REG)				\
-  static bool_t __test_name(NAME)(region_t REG)
+  static bool __test_name(NAME)(region_t REG)
 
 // Declare test suite with name NAME, running the given tests.
 ////
@@ -60,7 +60,7 @@
 
 #else // QCC_TESTING is disabled
 #define TEST_DECL(NAME, REG)						\
-  static bool_t __attribute__((unused)) __test_name(NAME)(region_t REG)
+  static bool __attribute__((unused)) __test_name(NAME)(region_t REG)
 #define TEST_SUITE_DECL(NAME, ...)					\
   static const int __attribute__((unused)) __test_name(NAME ## _reserved) = 0
 #define test_add(NAME) 0
@@ -71,7 +71,7 @@
 
 #include <stdio.h>
 
-#include "common.h"
+#include "basic.h"
 #include "region.h"
 
 #define __test_name(NAME) __test_ ## NAME
@@ -82,7 +82,7 @@
 
 struct __test_entry {
   const char* name;
-  bool_t (*fun)(region_t);
+  bool (*fun)(region_t);
 };
 
 ////////////////////////////////////////////////////////////////////////////////
@@ -105,7 +105,7 @@ __test_suite_execute_(const char* name,
     printf("[%3lu] %s\n",
 	   (size_t) (test - entries) + 1,
 	   test->name);
-    bool_t success = test->fun(test_region);
+    bool success = test->fun(test_region);
     num_succeeded += (success) ? 1 : 0;
     r_destroy(test_region);
   }

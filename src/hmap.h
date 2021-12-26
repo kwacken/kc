@@ -11,13 +11,13 @@
 //   - HMAP_HASH_FUN    :: Hashing function (default: murmur_hash)
 //       size_t (*)(const KEY_TYPE*)
 //   - HMAP_KEY_EQ      :: Key equality function (default: memcmp)
-//       bool_t (*)(const KEY_TYPE*, const KEY_TYPE*)
+//       bool (*)(const KEY_TYPE*, const KEY_TYPE*)
 //   - HMAP_LOAD_FACTOR :: How full the map should be before growing it.
 //       float, [0.0, 1.0] (default: 0.9f)
 //
 ////////////////////////////////////////////////////////////////////////////////
 
-#include "common.h"
+#include "basic.h"
 
 ////////////////////////////////////////////////////////////////////////////////
 // Parameters
@@ -90,14 +90,14 @@ HMAP_KEY_TYPE* HMAP(get)(struct HMAP_NAME*, const HMAP_KEY_TYPE* key);
 
 // Remove an entry from the map.
 /////
-// Returns TRUE if successfully removed, FALSE if not present.
-bool_t HMAP(erase)(struct HMAP_NAME*, const HMAP_KEY_TYPE* key);
+// Returns true if successfully removed, false if not present.
+bool HMAP(erase)(struct HMAP_NAME*, const HMAP_KEY_TYPE* key);
 
 // Remove an entry from the map and return value.
 /////
-// Returns TRUE if successfully removed, FALSE if not present.
+// Returns true if successfully removed, false if not present.
 #ifndef HMAP_HASHSET
-bool_t HMAP(extract)(struct HMAP_NAME*,
+bool HMAP(extract)(struct HMAP_NAME*,
 		     const HMAP_KEY_TYPE* key,
 		     HMAP_VAL_TYPE* out_val);
 #endif
@@ -107,25 +107,29 @@ static inline
 void HMAP(destroy)(struct HMAP_NAME*);
 
 #ifndef HMAP_HASHSET
-typedef bool_t (*HMAP(visitor_fun_t))(const HMAP_KEY_TYPE* key,
+typedef bool (*HMAP(visitor_fun_t))(const HMAP_KEY_TYPE* key,
 				      HMAP_VAL_TYPE* val,
 				      void* arg);
 #else
-typedef bool_t (*HMAP(visitor_fun_t))(const HMAP_KEY_TYPE* key,
+typedef bool (*HMAP(visitor_fun_t))(const HMAP_KEY_TYPE* key,
 				      void* arg);
 #endif
 
 // Visit all entries in the map.
 /////
-// Return TRUE from visitor to prematurely abort.
-bool_t HMAP(foreach)(struct HMAP_NAME*, HMAP(visitor_fun_t), void* arg);
+// Return true from visitor to prematurely abort.
+bool HMAP(foreach)(struct HMAP_NAME*, HMAP(visitor_fun_t), void* arg);
 
 
 ////////////////////////////////////////////////////////////////////////////////
 // Private
 
+#include <stdint.h>
 #include <math.h>
 #include <stdlib.h>
+
+#include "type.h"
+#include "contract.h"
 
 struct HMAP_NAME {
   parray_t(struct HMAP(_bucket)) buckets;
@@ -167,7 +171,7 @@ HMAP(_hash)(const HMAP_KEY_TYPE* key) {
 #endif
 
 #ifndef HMAP_KEY_EQ
-static inline bool_t __attribute__((always_inline))
+static inline bool __attribute__((always_inline))
 HMAP(_key_eq_default)(const HMAP_KEY_TYPE* lhs,
 		      const HMAP_KEY_TYPE* rhs) {
   return memcmp(lhs, rhs, sizeof(HMAP_KEY_TYPE)) == 0;
@@ -176,7 +180,7 @@ HMAP(_key_eq_default)(const HMAP_KEY_TYPE* lhs,
 #endif
 
 typedef size_t (*HMAP(hash_fun_t))(const HMAP_KEY_TYPE*);
-typedef bool_t (*HMAP(key_eq_fun_t))(const HMAP_KEY_TYPE*,
+typedef bool (*HMAP(key_eq_fun_t))(const HMAP_KEY_TYPE*,
 				     const HMAP_KEY_TYPE*);
 
 ////////////////////////////////////////////////////////////////////////////////
@@ -240,7 +244,7 @@ HMAP(_slot_load_count)(uint8_t slot_bound);
 static inline uint8_t __attribute__((always_inline))
 HMAP(_find_slot_bound)(size_t slots);
 
-static inline bool_t __attribute__((always_inline))
+static inline bool __attribute__((always_inline))
 HMAP(_key_eq)(struct HMAP(_bucket)* lhs, struct HMAP(_bucket)* rhs);
 
 static inline void
@@ -251,7 +255,7 @@ HMAP(_grow)(struct HMAP_NAME* table);
 
 static inline
 HMAP__RET* HMAP(_insert_inner)(struct HMAP_NAME* table,
-			       struct HMAP(_bucket) new);
+			       struct HMAP(_bucket) to_add);
 
 static inline struct HMAP(_bucket)*
 HMAP(_find)(struct HMAP_NAME* table, const HMAP_KEY_TYPE* key);
@@ -283,7 +287,7 @@ HMAP(_find_slot_bound)(size_t slots) {
   return slot_bound;
 }
 
-static inline bool_t __attribute__((always_inline))
+static inline bool __attribute__((always_inline))
 HMAP(_key_eq)(struct HMAP(_bucket)* lhs, struct HMAP(_bucket)* rhs) {
   return lhs->hash == rhs->hash
       && HMAP(_key_eq_fun)(&lhs->key, &rhs->key);
@@ -292,35 +296,33 @@ HMAP(_key_eq)(struct HMAP(_bucket)* lhs, struct HMAP(_bucket)* rhs) {
 static inline void
 HMAP(_init)(struct HMAP_NAME* table, uint8_t slot_bound) {
   size_t slot_count = HMAP(_slot_count)(slot_bound);
-  parray_t(struct HMAP(_bucket)) ret =
-    parray_new(malloc(sizeof(struct HMAP(_bucket)) * slot_count),
-	       slot_count);
+
+  parray_init(&table->buckets,
+	      sys_malloc_array(struct HMAP(_bucket), slot_count),
+	      slot_count);
 
   struct HMAP(_bucket)* bucket;
-  parray_foreach(bucket, &ret) {
+  parray_foreach(bucket, &table->buckets) {
     bucket->dist = -1;
   }
-  *table = (struct HMAP_NAME) {
-    .buckets = parray_move(&ret),
-    .num_items = 0,
-    .slot_bound = slot_bound,
-  };
+  table->num_items = 0;
+  table->slot_bound = slot_bound;
 }
 
 static inline void
 HMAP(_grow_to)(struct HMAP_NAME* table, uint8_t slot_bound) {
-  struct HMAP_NAME new;
-  HMAP(_init)(&new, slot_bound);
+  struct HMAP_NAME res;
+  HMAP(_init)(&res, slot_bound);
 
   struct HMAP(_bucket)* entry;
   parray_foreach(entry, &table->buckets) {
     if (entry->dist >= 0) {
-      HMAP(_insert_inner)(&new, *entry);
+      HMAP(_insert_inner)(&res, *entry);
     }
   }
 
   HMAP(destroy)(table);
-  *table = new;
+  *table = res;
 }
 
 static inline void __attribute__((always_inline))
@@ -330,43 +332,43 @@ HMAP(_grow)(struct HMAP_NAME* table) {
 
 static inline
 HMAP__RET* HMAP(_insert_inner)(struct HMAP_NAME* table,
-                               struct HMAP(_bucket) new) {
+                               struct HMAP(_bucket) to_add) {
   size_t index;
   struct HMAP(_bucket)* entry;
 
 insert:
-  new.dist = 0;
-  index = new.hash % HMAP(_slot_bounds)[table->slot_bound].cap;
+  to_add.dist = 0;
+  index = to_add.hash % HMAP(_slot_bounds)[table->slot_bound].cap;
   entry = &parray_get(&table->buckets, index);
 
-  for (; entry->dist >= new.dist; ++entry, ++new.dist) {
-    if (HMAP(_key_eq)(entry, &new)) {
+  for (; entry->dist >= to_add.dist; ++entry, ++to_add.dist) {
+    if (HMAP(_key_eq)(entry, &to_add)) {
       return &HMAP__GET(entry);
     }
   }
 
-  if (new.dist == HMAP(_slot_bounds)[table->slot_bound].max_dist) {
+  if (to_add.dist == HMAP(_slot_bounds)[table->slot_bound].max_dist) {
     HMAP(_grow)(table);
     goto insert;
   } else if (entry->dist < 0) {
     ++table->num_items;
-    *entry = new;
+    *entry = to_add;
     return NULL;
   }
 
-  swap(entry, &new);
+  swap(entry, &to_add);
 
-  for (++entry, ++new.dist;; ++entry) {
+  for (++entry, ++to_add.dist;; ++entry) {
     if (entry->dist < 0) {
       ++table->num_items;
-      *entry = new;
+      *entry = to_add;
       return NULL;
-    } else if (entry->dist < new.dist) {
-      swap(entry, &new);
-      ++new.dist;
+    } else if (entry->dist < to_add.dist) {
+      swap(entry, &to_add);
+      ++to_add.dist;
     } else {
-      ++new.dist;
-      if (new.dist == HMAP(_slot_bounds)[table->slot_bound].max_dist) {
+      ++to_add.dist;
+      if (to_add.dist == HMAP(_slot_bounds)[table->slot_bound].max_dist) {
 	break;
       }
     }
@@ -378,16 +380,16 @@ insert:
 
 static inline struct HMAP_NAME __attribute__((warn_unused_result))
 HMAP(new)() {
-  struct HMAP_NAME new;
-  HMAP(_init)(&new, 0);
-  return new;
+  struct HMAP_NAME res;
+  HMAP(_init)(&res, 0);
+  return res;
 }
 
 static inline struct HMAP_NAME __attribute__((warn_unused_result))
 HMAP(new_reserve)(size_t slots) {
-  struct HMAP_NAME new;
-  HMAP(_init)(&new, HMAP(_find_slot_bound)(slots));
-  return new;
+  struct HMAP_NAME res;
+  HMAP(_init)(&res, HMAP(_find_slot_bound)(slots));
+  return res;
 }
 
 static inline void
@@ -455,27 +457,27 @@ HMAP__RET* HMAP(get)(struct HMAP_NAME* table, const HMAP_KEY_TYPE* key) {
   return (found != NULL) ? &HMAP__GET(found) : NULL;
 }
 
-bool_t HMAP(erase)(struct HMAP_NAME* table, const HMAP_KEY_TYPE* key) {
+bool HMAP(erase)(struct HMAP_NAME* table, const HMAP_KEY_TYPE* key) {
   struct HMAP(_bucket)* found = HMAP(_find(table, key));
   if (found == NULL) {
-    return FALSE;
+    return false;
   } else {
     HMAP(_remove)(found);
-    return TRUE;
+    return true;
   }
 }
 
 #ifndef HMAP_HASHSET
-bool_t HMAP(extract)(struct HMAP_NAME* table,
+bool HMAP(extract)(struct HMAP_NAME* table,
 		     const HMAP_KEY_TYPE* key,
 		     HMAP_VAL_TYPE* out_val) {
   struct HMAP(_bucket)* found = HMAP(_find(table, key));
   if (found == NULL) {
-    return FALSE;
+    return false;
   } else {
     *out_val = found->val;
     HMAP(_remove)(found);
-    return TRUE;
+    return true;
   }
 }
 #endif
@@ -485,7 +487,7 @@ HMAP(destroy)(struct HMAP_NAME* table) {
   free(parray_raw(&table->buckets));
 }
 
-bool_t HMAP(foreach)(struct HMAP_NAME* table, HMAP(visitor_fun_t) fun, void* arg) {
+bool HMAP(foreach)(struct HMAP_NAME* table, HMAP(visitor_fun_t) fun, void* arg) {
   struct HMAP(_bucket)* entry;
   parray_foreach(entry, &table->buckets) {
     if (entry->dist >= 0) {
@@ -496,11 +498,11 @@ bool_t HMAP(foreach)(struct HMAP_NAME* table, HMAP(visitor_fun_t) fun, void* arg
 	  fun(&entry->key, arg)
 #endif
       ) {
-	return TRUE;
+	return true;
       }
     }
   }
-  return FALSE;
+  return false;
 }
 
 ////////////////////////////////////////////////////////////////////////////////

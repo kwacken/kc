@@ -6,54 +6,73 @@
 //
 ////////////////////////////////////////////////////////////////////////////////
 
+#include "type.h"
+#include "util.h"
+#include "basic.h"
 
 // Declare a growable array NAME for elements TYPE.
 #define VEC_DECL(NAME, TYPE)				\
-  struct NAME { size_t len, cap, elm_size; TYPE* vec; }
+  struct NAME { size_t cap; parray_t(TYPE) parray; }
 
-// Get the raw pointer to underlying array.
+#define vec_t(TYPE)				\
+  VEC_DECL(, TYPE)
+
+// Get pointer to the raw parray of the vector.
+#define vec_parray(VEC)				\
+  ((VEC)->parray)
+
+// Get underlying pointer of the vector.
 #define vec_raw(VEC)				\
-  ((VEC)->vec)
+  (parray_raw(&vec_parray(VEC)))
+
+// Get the number of elements in the vec.
+#define vec_len(VEC)				\
+  (parray_len(&vec_parray(VEC)))
+
+// Get the capacity of the vec.
+#define vec_cap(VEC)				\
+  ((VEC)->cap)
 
 // Allocate a new vec of VEC_TYPE with initial capacity CAP.
-#define vec_new_w_cap(VEC_TYPE, CAP)					\
-  ((VEC_TYPE) {	.len = 0, .cap = (CAP),					\
-     .elm_size = sizeof(array_elem_typeof(member_typeof(VEC_TYPE, vec))), \
-     .vec = ((CAP) != 0)						\
-     ? malloc(sizeof(array_elem_typeof(member_typeof(VEC_TYPE, vec))) * (CAP)) \
-     : NULL })
+#define vec_new_w_cap(VEC_TYPE, CAP) ({					\
+  size_t __cap = (CAP);						        \
+  member_typeof(VEC_TYPE, parray) __parray;				\
+  typeof(parray_raw(&__parray)) __ptr =	(__cap == 0)			\
+    ? NULL : sys_aligned_malloc_array(parray_elem_typeof(&__parray), __cap); \
+  parray_init(&__parray, __ptr, 0);					\
+  new(VEC_TYPE, .cap = __cap, .parray = __parray);			\
+})
 
 // Allocate a new vec of the type.
 #define vec_new(VEC_TYPE) vec_new_w_cap(VEC_TYPE, 8)
 
-// Reserve CAP spaces for elements in the vec.
-#define vec_reserve(VEC, CAP)					\
-  do {								\
-    __vec_reserve_((struct __vec_internal*)(VEC), (CAP));	\
+// Destroy a vec, freeing its underlying array.
+#define vec_destroy(VEC)			\
+  do {						\
+    sys_free(vec_raw(VEC));			\
   } while (0)
 
-// Destroy a vec, freeing its underlying array.
-#define vec_destroy(VEC) do {				\
-    __vec_destroy((struct __vec_internal*)(VEC));	\
+// Put a value, referenced by PTR, at the end of the vec.
+#define vec_push_ref(VEC, PTR)						\
+  do {									\
+    __auto_type __vec = (VEC);						\
+    pointer(parray_elem_typeof(&vec_parray(__vec))) __push_ref = (PTR);	\
+    if (vec_cap(__vec) <= vec_len(__vec)) {				\
+      vec_cap(__vec) +=							\
+	min(8UL, cast(size_t, (cast(double, vec_cap(__vec)) * 1.6)));	\
+      __vec_grow(__vec, vec_cap(__vec));				\
+    }									\
+    memcpy(vec_raw(__vec) + vec_len(__vec) + 1,				\
+           __push_ref, parray_elem_sizeof(&vec_parray(__vec)));		\
   } while (0)
 
 // Put a value VAL at the end of the vec.
-#define vec_push(VEC, VAL)						\
-  do {									\
-    typeof(*vec_raw(VEC)) __push_val = (VAL);				\
-    __vec_push_((struct __vec_internal*)(VEC), (char*)(&__push_val));	\
+#define vec_push(VEC, VAL)			\
+  do {						\
+    __auto_type __vec = (VEC);						\
+    parray_elem_typeof(&vec_parray(__vec)) __push_val = (VAL);	\
+    vec_push_ref((VEC), &__push_val);		\
   } while (0)
-
-// Put a value, referenced by VAL_REF, at the end of the vec.
-#define vec_push_ref(VEC, VAL_REF)					\
-  do {									\
-    typeof(vec_raw(VEC)) __push_val = (VAL_REF);			\
-    __vec_push_((struct __vec_internal*)(VEC), (char*)(__push_val));	\
-  } while (0)
-
-// Get the number of elements in the vec.
-#define vec_len(VEC)				\
-  __vec_len_((struct __vec_internal*)(VEC))
 
 // Get the element at the index IDX.
 #define vec_get(VEC, IDX)			\
@@ -66,20 +85,40 @@
 // Remove the last element of the vec.
 #define vec_vpop(VEC)				\
   do {						\
-    __vec_vpop_((struct __vec_internal*)(VEC));	\
+    vec_len((VEC))--;				\
   } while (0)
 
 // Remove the last element of the vec, storing its value at ELM_POINTER.
-#define vec_pop(VEC, ELM_PTR)				\
-  do {							\
-    *(ELM_PTR) = vec_get((VEC), vec_len((VEC)) - 1);	\
-    vec_vpop((VEC));					\
-  } while (0)
+#define vec_pop(VEC) ({			    \
+  __auto_type __vec = (VEC);		    \
+  __auto_type __val = *vec_back(__vec);	    \
+  vec_vpop(__vec);			    \
+  __val;				    \
+})
 
 // Clear the vec, removing all elements.
 #define vec_clear(VEC)					\
   do {							\
-    __vec_clear_((struct __vec_internal*)(VEC));	\
+    vec_len((VEC)) = 0;					\
+  } while (0)
+
+// Reserve CAP spaces for elements in the vec.
+#define vec_reserve(VEC, CAP)						\
+  do {									\
+    __auto_type __cap = (CAP);						\
+    __auto_type __vec = (VEC);						\
+    if (vec_cap(__vec) < __cap) __vec_grow(__vec, __cap);		\
+  } while (0)
+
+
+// TODO...
+
+// Return ptr_iter for the vec.
+/////
+// The lifetime of the ptr_iter is tied to immutable usage of the vec.
+#define vec_ptr_iter(VEC, ITER)						\
+  do {									\
+    parray_ptr_iter(&vec_parray(VEC), (ITER));				\
   } while (0)
 
 // Iterate over the elements of the vec.
@@ -98,13 +137,13 @@
 #define vec_idx_foreach_rev(VAR, VAR_IDX, VEC)				\
   array_idx_foreach_rev((VAR), (VAR_IDX), vec_len((VEC)), vec_raw((VEC)))
 
-
 // Create a new vec stored in region REG with capacity CAP.
-#define r_new_vec_w_cap(REG, VEC_TYPE, CAP)				\
-  ({ VEC_TYPE* __ret =							\
-      r_new_struct((REG), (r_generic_destructor_t)__vec_destroy, VEC_TYPE); \
-    vec_init_w_cap(__ret, (CAP));					\
-    __ret; })
+#define r_new_vec_w_cap(REG, VEC_TYPE, CAP) ({				\
+  pointer(VEC_TYPE) __ret =						\
+    r_new_struct((REG), __vec_generic_destructor, VEC_TYPE);		\
+  *__ret = vec_new_w_cap(VEC_TYPE, (CAP));				\
+  __ret;								\
+})
 
 // Create a new vec stored in region REG.
 #define r_new_vec(REG, VEC_TYPE) r_new_vec_w_cap(REG, VEC_TYPE, 8)
@@ -112,61 +151,29 @@
 ////////////////////////////////////////////////////////////////////////////////
 // Private
 
-#include "common.h"
-#include <stdlib.h>
-
-VEC_DECL(__vec_internal, char);
+static inline void
+__vec_generic_destructor(void* vec);
 
 ////////////////////////////////////////////////////////////////////////////////
 
-static inline void __attribute__((unused))
-__vec_push_(struct __vec_internal*, char*);
-static inline void __attribute__((unused, always_inline))
-__vec_vpop_(struct __vec_internal*);
-static inline void __attribute__((unused, always_inline))
-__vec_reserve_(struct __vec_internal*, size_t);
-static inline void __attribute__((unused, always_inline))
-__vec_destroy(struct __vec_internal*);
+#define __vec_grow(VEC, CAP)						\
+  do {								        \
+   vec_cap(VEC) = CAP;					         	\
+   member_typeof(typeof(*VEC), parray) __parray;			\
+   typeof(parray_raw(&__parray)) __ptr =			        \
+     sys_aligned_malloc_array(parray_elem_typeof(&__parray), CAP);	\
+   memcpy(__ptr,							\
+	  vec_raw(VEC),							\
+	  parray_sizeof(&vec_parray(VEC)));				\
+   parray_init(&__parray, __ptr, vec_len(VEC));				\
+   sys_free(vec_raw(VEC));						\
+   parray_init(&vec_parray(VEC),					\
+	       parray_raw(&__parray),					\
+	       parray_len(&__parray));					\
+  } while (0)
 
-////////////////////////////////////////////////////////////////////////////////
-
-static inline void __attribute__((unused, always_inline))
-__vec_clear_(struct __vec_internal* vec) {
-  vec->len = 0;
-}
-
-static inline size_t __attribute__((unused, always_inline))
-__vec_len_(struct __vec_internal* vec) {
-  return vec->len;
-}
-
-static inline void __attribute__((unused))
-__vec_push_(struct __vec_internal* vec, char* val) {
-  if (vec->cap <= vec->len) {
-    vec->cap += max(8, vec->cap * 1.6);
-    vec->vec = realloc(vec->vec, vec->elm_size * vec->cap);
-  }
-  memcpy(((char*)vec->vec) + (vec->len++ * vec->elm_size),
-	 val,
-	 vec->elm_size);
-}
-
-static inline void __attribute__((unused, always_inline))
-__vec_vpop_(struct __vec_internal* vec) {
-  vec->len--;
-}
-
-static inline void __attribute__((unused, always_inline))
-__vec_reserve_(struct __vec_internal* vec, size_t cap) {
-  if (vec->cap < cap) {
-    vec->cap = cap;
-    vec->vec = realloc(vec->vec, vec->elm_size * vec->cap);
-  }
-}
-
-static inline void __attribute__((unused, always_inline))
-__vec_destroy(struct __vec_internal* vec) {
-  if (vec->vec != NULL) {
-    free(vec->vec);
-  }
+static inline void
+__vec_generic_destructor(void* vec_) {
+  vec_t(char)* vec = cast(typeof(vec), vec_);
+  vec_destroy(vec);
 }

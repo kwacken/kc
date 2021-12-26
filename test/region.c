@@ -10,7 +10,7 @@ struct size_node {
 
 SLIST_DECL(size_list, struct size_node);
 
-bool_t corruption_test(region_t r, const char* name) {
+bool corruption_test(region_t r, const char* name) {
   static const size_t MAX = 100000;
   size_t i;
   struct size_list list;
@@ -32,7 +32,7 @@ bool_t corruption_test(region_t r, const char* name) {
   }
   tcheckpoint(name);
 
-  return TRUE;
+  return true;
 }
 
 TEST_DECL(test_regions, r) {
@@ -47,7 +47,7 @@ TEST_DECL(test_regions, r) {
 	     "Child region %lu corrupted", i);
   }
 
-  return TRUE;
+  return true;
 }
 
 

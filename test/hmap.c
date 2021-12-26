@@ -64,14 +64,14 @@ TEST_DECL(test_int_int, r) {
 
   hmap_int_int_destroy(&map);
 
-  return TRUE;
+  return true;
 }
 
 static inline size_t shift_str_hash(const string_t* ptr) {
-  return ((size_t) string(*ptr)) >> 4;
+  return ((size_t) string_raw(*ptr)) >> 4;
 }
 
-static inline bool_t string_t_eq(const string_t* s1, const string_t* s2) {
+static inline bool string_t_eq(const string_t* s1, const string_t* s2) {
   return string_eq(*s1, *s2);
 }
 
@@ -103,12 +103,13 @@ TEST_DECL(test_string_set, r) {
 
   array_foreach_rev(str, array_len(array), array) {
     const string_t* key = hset_string_get(&set, str);
-    tassertf("get", string_eq(*key, *str), "%s vs. %s", string(*key), string(*str));
+    tassertf("get", string_eq(*key, *str), "%s vs. %s",
+	     string_raw(*key), string_raw(*str));
   }
 
   hset_string_destroy(&set);
 
-  return TRUE;
+  return true;
 }
 
 

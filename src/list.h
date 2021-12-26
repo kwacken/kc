@@ -95,7 +95,8 @@
   slist_init(HEAD)
 
 // Reverse a slist using FIELD.
-#define slist_reverse(HEAD, FIELD) do {			\
+#define slist_reverse(HEAD, FIELD) \
+  do {							\
     typeof(*(HEAD)) __rev_list;				\
     slist_init(&__rev_list);				\
     while (!slist_is_empty((HEAD))) {			\
@@ -104,6 +105,14 @@
       slist_insert(&__rev_list, __list_top, FIELD);}	\
     *(HEAD) = __rev_list;				\
   } while (0)
+
+// Get the length of the slist using FIELD.
+#define slist_len(HEAD, FIELD)				\
+  ({							\
+    size_t __len = 0;					\
+    typeof(slist_first((HEAD))) __elem;			\
+    slist_foreach(__elem, (HEAD), FIELD) ++__len;	\
+    __len; })
 
 // Iterator for slists using FIELD.
 #define slist_foreach(VAR, HEAD, FIELD)		\

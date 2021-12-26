@@ -8,7 +8,7 @@
 // type. This is done by defining an error subtype as follows:
 //
 // struct my_error {
-//   enum { MY_ERROR0 = ERROR_FIRST, MY_ERROR1, MY_ERROR2, ... } tag;
+//   ERROR_SUBTYPE(MY_ERROR1, MY_ERROR2, ...) tag;
 //   ...
 // };
 //
@@ -21,18 +21,23 @@
 //  - Create a printable and castable version for use with setjmp.
 //  - Add setjmp capabilities.
 
+#include "basic.h"
+
+#define ERROR_SUBTYPE(FIRST, ...)		\
+  enum { FIRST = ERROR_FIRST, __VA_ARGS__ } tag
+
 // Create a non-error error value of type TYPE.
 #define error_no(TYPE)				\
-  ((struct TYPE) { .tag = ERROR_NO })
+  ((struct TYPE) { .tag = (member_typeof(struct TYPE, tag)) ERROR_NO })
 
 // Evaluate an expression which evals to an error value, return from surrounding
 // function if error.
 /////
 // struct my_error foo() { try_ret(may_error()); ... }
-#define try_ret(...)					\
-  do {							\
-    union error_all __possible_err = (__VA_ARGS__);	\
-    if (is_error(&(ERR))) return (ERR);			\
+#define try_ret(ERR, ...)			\
+  do {						\
+    (ERR) = (__VA_ARGS__);			\
+    if (is_error(&(ERR))) { return (ERR); }	\
   } while (0)
 
 // Evaluate an expression which evals to an error value assigned to ERR, jump to
@@ -59,12 +64,10 @@
 static inline union error_all as_error(void*);
 
 // Checks if the error value represents an error.
-static inline bool_t is_error(void* err);
+static inline bool is_error(void* err);
 
 ////////////////////////////////////////////////////////////////////////////////
 // Private
-
-#include "base.h"
 
 struct error {
   enum { ERROR_NO = 0, ERROR_FIRST = 1 } tag;
@@ -83,7 +86,7 @@ as_error(void* v) {
   return (union error_all) { .any = v };
 }
 
-static inline bool_t __attribute__((const, unused, always_inline))
+static inline bool __attribute__((const, unused, always_inline))
 is_error(void* err) {
   return as_error(err).error->tag != ERROR_NO;
 }
