@@ -29,6 +29,12 @@
 #define vec_len(VEC)				\
   (parray_len(&vec_parray(VEC)))
 
+#define vec_elem_typeof(VEC)			\
+  parray_elem_typeof(&vec_parray(VEC))
+
+#define vec_elem_sizeof(VEC)			\
+  parray_elem_sizeof(&vec_parray(VEC))
+
 // Get the capacity of the vec.
 #define vec_cap(VEC)				\
   ((VEC)->cap)
@@ -53,24 +59,26 @@
   } while (0)
 
 // Put a value, referenced by PTR, at the end of the vec.
+// Put a value, referenced by PTR, at the end of the vec.
 #define vec_push_ref(VEC, PTR)						\
   do {									\
     __auto_type __vec = (VEC);						\
-    pointer(parray_elem_typeof(&vec_parray(__vec))) __push_ref = (PTR);	\
+    pointer(vec_elem_typeof(__vec)) __push_ref = (PTR);	\
     if (vec_cap(__vec) <= vec_len(__vec)) {				\
       vec_cap(__vec) +=							\
-	min(8UL, cast(size_t, (cast(double, vec_cap(__vec)) * 1.6)));	\
+	max(8UL, cast(size_t, (cast(double, vec_cap(__vec)) * 1.6)));	\
       __vec_grow(__vec, vec_cap(__vec));				\
     }									\
-    memcpy(vec_raw(__vec) + vec_len(__vec) + 1,				\
-           __push_ref, parray_elem_sizeof(&vec_parray(__vec)));		\
+    memcpy(vec_raw(__vec) + vec_len(__vec),				\
+           __push_ref, vec_elem_sizeof(__vec));			\
+    vec_len(__vec)++;							\
   } while (0)
 
 // Put a value VAL at the end of the vec.
 #define vec_push(VEC, VAL)			\
   do {						\
     __auto_type __vec = (VEC);						\
-    parray_elem_typeof(&vec_parray(__vec)) __push_val = (VAL);	\
+    vec_elem_typeof(__vec) __push_val = (VAL);	\
     vec_push_ref((VEC), &__push_val);		\
   } while (0)
 
@@ -158,18 +166,13 @@ __vec_generic_destructor(void* vec);
 
 #define __vec_grow(VEC, CAP)						\
   do {								        \
-   vec_cap(VEC) = CAP;					         	\
-   member_typeof(typeof(*VEC), parray) __parray;			\
-   typeof(parray_raw(&__parray)) __ptr =			        \
-     sys_aligned_malloc_array(parray_elem_typeof(&__parray), CAP);	\
-   memcpy(__ptr,							\
-	  vec_raw(VEC),							\
-	  parray_sizeof(&vec_parray(VEC)));				\
-   parray_init(&__parray, __ptr, vec_len(VEC));				\
-   sys_free(vec_raw(VEC));						\
-   parray_init(&vec_parray(VEC),					\
-	       parray_raw(&__parray),					\
-	       parray_len(&__parray));					\
+    __auto_type __vec = (VEC);						\
+    vec_cap(__vec) = (CAP);						\
+    pointer(vec_elem_typeof(__vec)) __ptr =			        \
+      sys_realloc_array(vec_elem_typeof(__vec),				\
+                        vec_raw(__vec),					\
+                        vec_cap(__vec));				\
+    parray_init(&vec_parray(__vec), __ptr, vec_len(__vec));		\
   } while (0)
 
 static inline void

@@ -9,12 +9,19 @@
 #include <stdlib.h>
 #include <stdio.h>
 
+#include "type.h"
+
 // Declare code path unreachable, fail in debug mode.
 #ifndef NDEBUG
 #define UNREACHABLE assertf(false, "Unreachable"); __builtin_unreachable()
 #else
 #define UNREACHABLE __builtin_unreachable()
 #endif
+
+// Declare code path incomplete.
+#define INCOMPLETE							\
+  fprintf(stderr, "Unfinished code (%s:%d)\n", __FILE__, __LINE__);	\
+  exit(1)
 
 // Assert a condition with the given failure message.
 /////

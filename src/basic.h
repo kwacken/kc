@@ -19,6 +19,14 @@
 
 typedef struct { const char* val; size_t len; } string_t;
 
+__attribute__((unused))
+static const string_t NULL_STRING = { NULL, 0 };
+
+#define string_fmt "%.*s"
+
+#define string_fmt_arg(STR)			\
+  (int)string_len((STR)), string_raw((STR))
+
 // Convert constant string literal into a string.
 #define as_string_t(CST)					\
   new(string_t, .val = (CST), .len = array_len((CST)) - 1)
@@ -36,6 +44,9 @@ static inline size_t string_len(string_t);
 
 // Check if two strings are equal.
 static inline bool string_eq(string_t, string_t);
+
+#define string_foreach(VAR, STR)				\
+  array_foreach(VAR, string_len(*(STR)), string_raw(*(STR)))
 
 ////////////////////////////////////////////////////////////////////////////////
 // parray_t
@@ -74,7 +85,7 @@ static inline bool string_eq(string_t, string_t);
 #define parray_ptr_iter(PARRAY, ITER)					\
   do {									\
     __auto_type __parray = (PARRAY);					\
-    ptr_iter_init((ITER), parray_raw(__parray), parray_raw(_parray) + len); \
+    ptr_iter_init((ITER), parray_raw(__parray), parray_raw(_parray) + parray_len(__parray)); \
   } while (0)
 
 #define parray_foreach(VAR, PARRAY)					\

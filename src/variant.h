@@ -12,6 +12,6 @@
 
 #define CONSTRUCTOR(BASE_TYPE, VARIANT, TAG)				\
   static inline __attribute__((warn_unused_result, unused))		\
-  bool_t BASE_TYPE ## _is_ ## VARIANT(const struct BASE_TYPE* b)	\
+  bool BASE_TYPE ## _is_ ## VARIANT(const struct BASE_TYPE* b)		\
   { return b->tag == (TAG); }						\
   CONSTRUCTOR_DEF(BASE_TYPE, VARIANT)

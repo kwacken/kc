@@ -6,7 +6,7 @@
 //
 // No harnesses, no safety, just check assertions with nicer formatting.
 //
-// To enable, pass QCC_TESTING when compiling a compilation unit which uses
+// To enable, pass KC_TESTING when compiling a compilation unit which uses
 // TEST_SUITE_DECL.
 //
 ////////////////////////////////////////////////////////////////////////////////
@@ -31,9 +31,18 @@
 #define tcheckpoint(NAME)			\
   tassertf(NAME, true, "%s", NAME)
 
+#define tassert_error_no(NAME, ERR_PTR, PRINTER)		\
+  do {								\
+    __auto_type __tassert_err = (ERR_PTR);			\
+    if (is_error(__tassert_err)) {				\
+      __test_assert_message_(NAME, false, "Error result:");	\
+      (PRINTER)(stdout, __tassert_err);				\
+      return false;						\
+    }								\
+  } while (0)
 
-// QCC_TESTING enables test suites at compile-time.
-#ifdef QCC_TESTING
+// KC_TESTING enables test suites at compile-time.
+#ifdef KC_TESTING
 
 // Declare a test function with NAME and using region REG.
 /////
@@ -58,7 +67,7 @@
 #define test_add(NAME)				\
   { .name = #NAME, .fun = __test_name(NAME) }
 
-#else // QCC_TESTING is disabled
+#else // KC_TESTING is disabled
 #define TEST_DECL(NAME, REG)						\
   static bool __attribute__((unused)) __test_name(NAME)(region_t REG)
 #define TEST_SUITE_DECL(NAME, ...)					\
@@ -88,7 +97,7 @@ struct __test_entry {
 ////////////////////////////////////////////////////////////////////////////////
 
 static inline void __attribute__((unused))
-__test_suite_execute_(const char*, size_t, const struct __test_entry[*]);
+__test_suite_execute_(const char*, size_t count, const struct __test_entry[count]);
 
 ////////////////////////////////////////////////////////////////////////////////
 

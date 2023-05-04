@@ -10,6 +10,9 @@
 
 #include "type.h"
 
+#define IGNORE(VAR)				\
+  cast(void, VAR)
+
 // Get length of a built-in array type.
 #define array_len(A) ((sizeof(A)) / (sizeof(A[0])))
 
